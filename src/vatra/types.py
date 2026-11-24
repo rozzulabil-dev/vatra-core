@@ -63,6 +63,7 @@ class SpatialZone:
     name: str
     polygon: list[tuple[float, float]]
     watched_labels: tuple[str, ...] = ()
+    anchor: str = "center"
 
 
 @dataclass(slots=True)

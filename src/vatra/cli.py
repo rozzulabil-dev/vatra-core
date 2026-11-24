@@ -5,9 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 import time
 from dataclasses import asdict
-from typing import Sequence
+from typing import Any, Sequence
 
 from vatra import __version__
 from vatra.alerts import JsonlAlertSink, WebhookAlertSink
@@ -25,7 +26,7 @@ from vatra.detectors import MockDetector, probe_runtime_environment
 from vatra.pipeline import EdgeVisionPipeline
 from vatra.server import DashboardState, VatraDashboardServer
 from vatra.sources import SyntheticSource
-from vatra.spatial import SpatialZoneMonitor
+from vatra.spatial import SpatialZoneMonitor, make_rect_polygon
 from vatra.types import Detection, FramePacket, SpatialZone, ZoneEvent
 from vatra.visualizer import FrameVisualizer
 
@@ -265,11 +266,38 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         )
         return 2
 
-    state = DashboardState(version=__version__)
-    server = VatraDashboardServer(host=args.host, port=args.port, state=state)
-    server.start_background()
-    print(f"Vatra.ai Live Dashboard running at {server.url} (Press Ctrl+C to stop)")
+    if not cfg.zones:
+        cfg.zones = [_default_zone()]
 
+    active_zone = cfg.zones[0]
+    if len(active_zone.polygon) >= 3:
+        xs = [pt[0] for pt in active_zone.polygon]
+        ys = [pt[1] for pt in active_zone.polygon]
+        init_cx = (min(xs) + max(xs)) / 2.0
+        init_cy = (min(ys) + max(ys)) / 2.0
+        init_w = max(40.0, max(xs) - min(xs))
+        init_h = max(40.0, max(ys) - min(ys))
+    else:
+        init_cx, init_cy, init_w, init_h = 320.0, 240.0, 320.0, 240.0
+
+    zone_lock = threading.Lock()
+    initial_control: dict[str, Any] = {
+        "zone_id": active_zone.zone_id,
+        "zone_name": active_zone.name,
+        "center_x": round(init_cx, 1),
+        "center_y": round(init_cy, 1),
+        "width": round(init_w, 1),
+        "height": round(init_h, 1),
+        "angle_deg": 0.0,
+        "anchor": active_zone.anchor,
+        "confidence": float(cfg.detector.confidence_threshold),
+        "frame_width": int(cfg.source.width),
+        "frame_height": int(cfg.source.height),
+    }
+    zone_control: dict[str, Any] = dict(initial_control)
+
+    state = DashboardState(version=__version__)
+    state.update(zone_control=zone_control)
     visualizer = FrameVisualizer(zones=cfg.zones, show=False, save_path=None)
     analytics_tracker = ZoneAnalyticsTracker(cfg.zones)
     frame_interval = 1.0 / max(args.fps, 1.0)
@@ -290,6 +318,16 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         total_detections += len(detections)
         total_events += len(events)
 
+        updated_control: dict[str, Any] | None = None
+        with zone_lock:
+            if (
+                packet.width != zone_control["frame_width"]
+                or packet.height != zone_control["frame_height"]
+            ):
+                zone_control["frame_width"] = int(packet.width)
+                zone_control["frame_height"] = int(packet.height)
+                updated_control = dict(zone_control)
+
         analytics_tracker.update(packet, events)
         canvas, _ = visualizer.render(packet, detections, events)
         ok, encoded = cv2.imencode(".jpg", canvas)
@@ -306,13 +344,62 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             },
             analytics=analytics_tracker.summary_dict(),
             events=events,
+            zone_control=updated_control,
         )
         if cfg.source.uri == "synthetic":
             time.sleep(frame_interval)
         return True
 
+    pipeline = build_pipeline_from_config(cfg, on_frame=handle_frame)
+    if pipeline.tracker is not None:
+        pipeline.tracker.smoothing_alpha = 0.65
+
+    def handle_zone_update(payload: dict[str, Any]) -> dict[str, Any]:
+        with zone_lock:
+            if payload.get("reset"):
+                fw = zone_control["frame_width"]
+                fh = zone_control["frame_height"]
+                zone_control.update(initial_control)
+                zone_control["frame_width"] = fw
+                zone_control["frame_height"] = fh
+            else:
+                if "center_x" in payload:
+                    zone_control["center_x"] = float(payload["center_x"])
+                if "center_y" in payload:
+                    zone_control["center_y"] = float(payload["center_y"])
+                if "width" in payload:
+                    zone_control["width"] = max(20.0, float(payload["width"]))
+                if "height" in payload:
+                    zone_control["height"] = max(20.0, float(payload["height"]))
+                if "angle_deg" in payload:
+                    zone_control["angle_deg"] = max(-180.0, min(180.0, float(payload["angle_deg"])))
+                if "anchor" in payload and payload["anchor"] in ("center", "bottom_center"):
+                    zone_control["anchor"] = str(payload["anchor"])
+                if "confidence" in payload:
+                    zone_control["confidence"] = max(0.05, min(0.99, float(payload["confidence"])))
+
+            active_zone.polygon = make_rect_polygon(
+                center_x=zone_control["center_x"],
+                center_y=zone_control["center_y"],
+                width=zone_control["width"],
+                height=zone_control["height"],
+                angle_deg=zone_control["angle_deg"],
+            )
+            active_zone.anchor = zone_control["anchor"]
+            if hasattr(pipeline.detector, "confidence_threshold"):
+                pipeline.detector.confidence_threshold = zone_control["confidence"]
+            return dict(zone_control)
+
+    server = VatraDashboardServer(
+        host=args.host,
+        port=args.port,
+        state=state,
+        on_zone_update=handle_zone_update,
+    )
+    server.start_background()
+    print(f"Vatra.ai Live Dashboard running at {server.url} (Press Ctrl+C to stop)")
+
     try:
-        pipeline = build_pipeline_from_config(cfg, on_frame=handle_frame)
         providers = getattr(pipeline.detector, "active_providers", None)
         if providers is not None:
             print(f"Detector: {pipeline.detector.name} | Providers: {', '.join(providers)}")

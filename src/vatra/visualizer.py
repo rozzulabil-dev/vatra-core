@@ -66,17 +66,18 @@ class FrameVisualizer:
 
         # Draw spatial zones
         for zone in self.zones:
-            if len(zone.polygon) < 3:
+            polygon = list(zone.polygon)
+            if len(polygon) < 3:
                 continue
             is_alert = zone.zone_id in triggered_zones
             color = (68, 68, 239) if is_alert else (94, 197, 34)  # BGR: red or green
-            pts = np.array([(int(x), int(y)) for x, y in zone.polygon], dtype=np.int32)
+            pts = np.array([(int(x), int(y)) for x, y in polygon], dtype=np.int32)
             overlay = canvas.copy()
             cv2.fillPoly(overlay, [pts], color)
             cv2.addWeighted(overlay, 0.16 if is_alert else 0.08, canvas, 0.84 if is_alert else 0.92, 0, canvas)
             cv2.polylines(canvas, [pts], isClosed=True, color=color, thickness=2)
 
-            label_pos = (max(8, int(zone.polygon[0][0])), max(24, int(zone.polygon[0][1]) - 8))
+            label_pos = (max(8, int(polygon[0][0])), max(24, int(polygon[0][1]) - 8))
             cv2.putText(
                 canvas,
                 zone.name,

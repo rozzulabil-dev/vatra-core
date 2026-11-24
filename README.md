@@ -171,6 +171,7 @@ python -m unittest discover -s tests -v
 - [x] Multi-object IoU tracking, JSONL/Webhook alert dispatchers, and GitHub Actions CI (`v0.3.0`)
 - [x] Per-zone dwell-time & unique-entry analytics + live local web dashboard `vatra serve` (`v0.4.0`)
 - [x] Aspect-ratio letterbox YOLO preprocessing, Windows GPU DirectML/CUDA/TensorRT priority & ONNX export helper (`v0.5.0`)
+- [x] Live zone transform controls (position, scale, rotation), bounding-box smoothing, and bottom-center zone anchor accuracy (`v0.6.0`)
 - [ ] Synthetic data & simulation bridge (NVIDIA Omniverse / Isaac Sim compatible)
 - [ ] Public edge benchmarks on NVIDIA Jetson Orin
 

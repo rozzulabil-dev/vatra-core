@@ -1,6 +1,6 @@
 """Vatra.ai - Open-source Physical AI & Edge Vision platform by Vantara Intech."""
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from vatra.alerts import JsonlAlertSink, WebhookAlertSink, zone_event_to_dict
 from vatra.analytics import ZoneAnalyticsSnapshot, ZoneAnalyticsTracker
@@ -21,7 +21,12 @@ from vatra.detectors import (
 from vatra.pipeline import EdgeVisionPipeline, PipelineStats
 from vatra.server import DashboardState, VatraDashboardServer
 from vatra.sources import FrameSource, SyntheticSource, VideoStreamSource
-from vatra.spatial import SpatialZoneMonitor, point_in_polygon
+from vatra.spatial import (
+    SpatialZoneMonitor,
+    make_rect_polygon,
+    point_in_polygon,
+    transform_polygon,
+)
 from vatra.tracker import IouTracker
 from vatra.types import BoundingBox, Detection, FramePacket, SpatialZone, ZoneEvent
 from vatra.visualizer import FrameVisualizer
@@ -69,8 +74,10 @@ __all__ = [
     "decode_yolo_output",
     "letterbox_image",
     "load_pipeline_config",
+    "make_rect_polygon",
     "non_max_suppression",
     "point_in_polygon",
     "probe_runtime_environment",
+    "transform_polygon",
     "zone_event_to_dict",
 ]

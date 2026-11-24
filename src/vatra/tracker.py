@@ -22,13 +22,21 @@ class _TrackState:
 class IouTracker:
     """Zero-dependency greedy IoU tracker assigning persistent track IDs across frames."""
 
-    def __init__(self, iou_threshold: float = 0.3, max_missed: int = 10) -> None:
+    def __init__(
+        self,
+        iou_threshold: float = 0.3,
+        max_missed: int = 10,
+        smoothing_alpha: float = 1.0,
+    ) -> None:
         if not 0.0 <= iou_threshold <= 1.0:
             raise ValueError("iou_threshold must be between 0.0 and 1.0.")
         if max_missed < 0:
             raise ValueError("max_missed must be >= 0.")
+        if not 0.0 < smoothing_alpha <= 1.0:
+            raise ValueError("smoothing_alpha must be in (0.0, 1.0].")
         self.iou_threshold = iou_threshold
         self.max_missed = max_missed
+        self.smoothing_alpha = smoothing_alpha
         self._next_id = 1
         self._tracks: dict[int, _TrackState] = {}
 
@@ -71,7 +79,17 @@ class IouTracker:
             det_to_track[det_idx] = tid
             state = self._tracks[tid]
             det = detections[det_idx]
-            state.bbox = det.bbox
+            if self.smoothing_alpha < 1.0:
+                a = self.smoothing_alpha
+                b = 1.0 - a
+                state.bbox = BoundingBox(
+                    x1=round(a * det.bbox.x1 + b * state.bbox.x1, 2),
+                    y1=round(a * det.bbox.y1 + b * state.bbox.y1, 2),
+                    x2=round(a * det.bbox.x2 + b * state.bbox.x2, 2),
+                    y2=round(a * det.bbox.y2 + b * state.bbox.y2, 2),
+                )
+            else:
+                state.bbox = det.bbox
             state.label = det.label
             state.missed = 0
             state.hits += 1
@@ -99,6 +117,8 @@ class IouTracker:
                     class_id=det.class_id,
                     label=det.label,
                 )
-            tracked_detections.append(replace(det, track_id=tid))
+            tracked_detections.append(
+                replace(det, track_id=tid, bbox=self._tracks[tid].bbox)
+            )
 
         return tracked_detections
