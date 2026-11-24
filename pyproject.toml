@@ -47,6 +47,9 @@ onnx = [
 cuda = [
   "onnxruntime-gpu>=1.18",
 ]
+directml = [
+  "onnxruntime-directml>=1.20",
+]
 yaml = [
   "pyyaml>=6.0",
 ]

@@ -18,6 +18,7 @@ from vatra.config import (
     SourceConfig,
     TrackerConfig,
     build_pipeline_from_config,
+    build_source_from_config,
     load_pipeline_config,
 )
 from vatra.detectors import MockDetector, probe_runtime_environment
@@ -306,15 +307,23 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             analytics=analytics_tracker.summary_dict(),
             events=events,
         )
-        time.sleep(frame_interval)
+        if cfg.source.uri == "synthetic":
+            time.sleep(frame_interval)
         return True
 
     try:
+        pipeline = build_pipeline_from_config(cfg, on_frame=handle_frame)
+        providers = getattr(pipeline.detector, "active_providers", None)
+        if providers is not None:
+            print(f"Detector: {pipeline.detector.name} | Providers: {', '.join(providers)}")
+        else:
+            print(f"Detector: {pipeline.detector.name}")
+
         while True:
-            pipeline = build_pipeline_from_config(cfg, on_frame=handle_frame)
             pipeline.run()
             if not loop_synthetic:
                 break
+            pipeline.source = build_source_from_config(cfg.source)
     except KeyboardInterrupt:
         pass
     finally:
