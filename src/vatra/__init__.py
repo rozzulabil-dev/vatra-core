@@ -1,6 +1,6 @@
 """Vatra.ai - Open-source Physical AI & Edge Vision platform by Vantara Intech."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from vatra.alerts import JsonlAlertSink, WebhookAlertSink, zone_event_to_dict
 from vatra.analytics import ZoneAnalyticsSnapshot, ZoneAnalyticsTracker
@@ -30,6 +30,7 @@ from vatra.yolo import (
     YoloOnnxDetector,
     compute_iou,
     decode_yolo_output,
+    letterbox_image,
     non_max_suppression,
 )
 
@@ -66,6 +67,7 @@ __all__ = [
     "build_pipeline_from_config",
     "compute_iou",
     "decode_yolo_output",
+    "letterbox_image",
     "load_pipeline_config",
     "non_max_suppression",
     "point_in_polygon",

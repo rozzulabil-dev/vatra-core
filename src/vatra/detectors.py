@@ -98,10 +98,11 @@ class OnnxRuntimeDetector:
             [
                 "TensorrtExecutionProvider",
                 "CUDAExecutionProvider",
+                "DmlExecutionProvider",
                 "CPUExecutionProvider",
             ]
             if prefer_tensorrt
-            else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            else ["CUDAExecutionProvider", "DmlExecutionProvider", "CPUExecutionProvider"]
         )
         providers = [p for p in preferred_order if p in available]
         if not providers:
@@ -201,11 +202,15 @@ def probe_runtime_environment() -> dict[str, Any]:
         except Exception:
             torch_cuda = False
 
+    cuda_available = ("CUDAExecutionProvider" in providers) or torch_cuda
+    directml_available = "DmlExecutionProvider" in providers
     return {
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
         "packages": packages,
         "onnx_providers": providers,
-        "cuda_available": ("CUDAExecutionProvider" in providers) or torch_cuda,
+        "cuda_available": cuda_available,
         "tensorrt_available": "TensorrtExecutionProvider" in providers,
+        "directml_available": directml_available,
+        "gpu_available": cuda_available or directml_available,
     }

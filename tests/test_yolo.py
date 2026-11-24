@@ -11,6 +11,7 @@ from vatra.yolo import (
     COCO_LABELS,
     compute_iou,
     decode_yolo_output,
+    letterbox_image,
     non_max_suppression,
 )
 
@@ -81,6 +82,40 @@ class YoloTests(unittest.TestCase):
         self.assertAlmostEqual(det.bbox.x2, 800.0, places=2)
         self.assertAlmostEqual(det.bbox.y1, 180.0, places=2)
         self.assertAlmostEqual(det.bbox.y2, 540.0, places=2)
+
+    def test_letterbox_image_preserves_aspect_ratio(self) -> None:
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        padded, ratio, pad_x, pad_y = letterbox_image(frame, new_shape=(640, 640))
+
+        self.assertEqual(padded.shape, (640, 640, 3))
+        self.assertAlmostEqual(ratio, 0.5, places=6)
+        self.assertAlmostEqual(pad_x, 0.0, places=6)
+        self.assertAlmostEqual(pad_y, 140.0, places=6)
+
+    def test_decode_yolo_output_with_letterbox(self) -> None:
+        raw = np.zeros((1, 84, 1), dtype=np.float32)
+        # Box in 640x640 letterboxed space for a 1280x720 frame (ratio=0.5, pad_x=0, pad_y=140):
+        # Input center (320, 320), size (200, 100) -> x=[220, 420], y=[270, 370]
+        # Original 1280x720 coords: x=[(220-0)/0.5, (420-0)/0.5] = [440, 840]
+        #                           y=[(270-140)/0.5, (370-140)/0.5] = [260, 460]
+        raw[0, 0:4, 0] = [320.0, 320.0, 200.0, 100.0]
+        raw[0, 4 + 0, 0] = 0.91
+
+        detections = decode_yolo_output(
+            raw,
+            orig_width=1280,
+            orig_height=720,
+            confidence_threshold=0.5,
+            iou_threshold=0.45,
+            letterbox=(0.5, 0.0, 140.0),
+        )
+
+        self.assertEqual(len(detections), 1)
+        det = detections[0]
+        self.assertAlmostEqual(det.bbox.x1, 440.0, places=2)
+        self.assertAlmostEqual(det.bbox.y1, 260.0, places=2)
+        self.assertAlmostEqual(det.bbox.x2, 840.0, places=2)
+        self.assertAlmostEqual(det.bbox.y2, 460.0, places=2)
 
 
 if __name__ == "__main__":

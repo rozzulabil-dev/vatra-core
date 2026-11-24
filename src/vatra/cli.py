@@ -65,6 +65,7 @@ def _cmd_info(as_json: bool) -> int:
     print(f"ONNX Providers:     {providers}")
     print(f"CUDA Available:     {env['cuda_available']}")
     print(f"TensorRT Available: {env['tensorrt_available']}")
+    print(f"DirectML Available: {env['directml_available']}")
     return 0
 
 

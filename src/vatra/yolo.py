@@ -88,6 +88,48 @@ def _clamp_box(
     return BoundingBox(x1=cx1, y1=cy1, x2=cx2, y2=cy2)
 
 
+def letterbox_image(
+    image: Any,
+    new_shape: tuple[int, int] = (640, 640),
+    color: tuple[int, int, int] = (114, 114, 114),
+) -> tuple[Any, float, float, float]:
+    """Resize an image while preserving aspect ratio and pad evenly to new_shape."""
+    try:
+        import cv2  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError(
+            "opencv-python-headless is required for letterbox_image. "
+            "Install it with: pip install 'vatra-core[vision]'"
+        ) from exc
+
+    orig_h, orig_w = image.shape[:2]
+    new_w, new_h = int(new_shape[0]), int(new_shape[1])
+    ratio = min(float(new_w) / float(orig_w), float(new_h) / float(orig_h))
+
+    unpad_w = int(round(orig_w * ratio))
+    unpad_h = int(round(orig_h * ratio))
+    pad_left = (new_w - unpad_w) // 2
+    pad_right = new_w - unpad_w - pad_left
+    pad_top = (new_h - unpad_h) // 2
+    pad_bottom = new_h - unpad_h - pad_top
+
+    if (orig_w, orig_h) != (unpad_w, unpad_h):
+        resized = cv2.resize(image, (unpad_w, unpad_h), interpolation=cv2.INTER_LINEAR)
+    else:
+        resized = image
+
+    padded = cv2.copyMakeBorder(
+        resized,
+        pad_top,
+        pad_bottom,
+        pad_left,
+        pad_right,
+        cv2.BORDER_CONSTANT,
+        value=color,
+    )
+    return padded, float(ratio), float(pad_left), float(pad_top)
+
+
 def decode_yolo_output(
     raw_output: Any,
     orig_width: int,
@@ -97,6 +139,7 @@ def decode_yolo_output(
     confidence_threshold: float = 0.5,
     iou_threshold: float = 0.45,
     labels: Sequence[str] = COCO_LABELS,
+    letterbox: tuple[float, float, float] | None = None,
 ) -> list[Detection]:
     """Decode YOLOv8/v11 [1, 4+C, N] or pre-decoded [1, N, 6] ONNX outputs."""
     try:
@@ -113,10 +156,36 @@ def decode_yolo_output(
     if arr.ndim != 2:
         return []
 
-    scale_x = float(orig_width) / float(max(input_width, 1))
-    scale_y = float(orig_height) / float(max(input_height, 1))
     max_w = float(orig_width)
     max_h = float(orig_height)
+
+    if letterbox is not None:
+        ratio = max(float(letterbox[0]), 1e-9)
+        pad_x = float(letterbox[1])
+        pad_y = float(letterbox[2])
+
+        def to_orig_box(x1: float, y1: float, x2: float, y2: float) -> BoundingBox:
+            return _clamp_box(
+                (x1 - pad_x) / ratio,
+                (y1 - pad_y) / ratio,
+                (x2 - pad_x) / ratio,
+                (y2 - pad_y) / ratio,
+                max_w,
+                max_h,
+            )
+    else:
+        scale_x = float(orig_width) / float(max(input_width, 1))
+        scale_y = float(orig_height) / float(max(input_height, 1))
+
+        def to_orig_box(x1: float, y1: float, x2: float, y2: float) -> BoundingBox:
+            return _clamp_box(
+                x1 * scale_x,
+                y1 * scale_y,
+                x2 * scale_x,
+                y2 * scale_y,
+                max_w,
+                max_h,
+            )
 
     # Handle pre-decoded [N, 6] format: [x1, y1, x2, y2, score, class_id]
     expected_channels = 4 + len(labels)
@@ -128,14 +197,7 @@ def decode_yolo_output(
                 continue
             class_id = int(row[5])
             label = labels[class_id] if 0 <= class_id < len(labels) else f"class_{class_id}"
-            bbox = _clamp_box(
-                float(row[0]) * scale_x,
-                float(row[1]) * scale_y,
-                float(row[2]) * scale_x,
-                float(row[3]) * scale_y,
-                max_w,
-                max_h,
-            )
+            bbox = to_orig_box(float(row[0]), float(row[1]), float(row[2]), float(row[3]))
             candidates.append(Detection(label=label, confidence=score, bbox=bbox, class_id=class_id))
         return non_max_suppression(candidates, iou_threshold=iou_threshold)
 
@@ -167,14 +229,7 @@ def decode_yolo_output(
         cx, cy, bw, bh = float(box[0]), float(box[1]), float(box[2]), float(box[3])
         half_w = bw / 2.0
         half_h = bh / 2.0
-        bbox = _clamp_box(
-            (cx - half_w) * scale_x,
-            (cy - half_h) * scale_y,
-            (cx + half_w) * scale_x,
-            (cy + half_h) * scale_y,
-            max_w,
-            max_h,
-        )
+        bbox = to_orig_box(cx - half_w, cy - half_h, cx + half_w, cy + half_h)
         class_id = int(cid)
         label = labels[class_id] if 0 <= class_id < len(labels) else f"class_{class_id}"
         candidates.append(
@@ -190,7 +245,7 @@ def decode_yolo_output(
 
 
 class YoloOnnxDetector:
-    """YOLOv8/v11 ONNX Runtime detector prioritizing TensorRT and CUDA providers."""
+    """YOLOv8/v11 ONNX Runtime detector prioritizing TensorRT, CUDA, and DirectML."""
 
     name: str = "yolo-onnx"
 
@@ -227,10 +282,11 @@ class YoloOnnxDetector:
             [
                 "TensorrtExecutionProvider",
                 "CUDAExecutionProvider",
+                "DmlExecutionProvider",
                 "CPUExecutionProvider",
             ]
             if prefer_tensorrt
-            else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            else ["CUDAExecutionProvider", "DmlExecutionProvider", "CPUExecutionProvider"]
         )
         providers = [p for p in preferred_order if p in available]
         if not providers:
@@ -240,20 +296,20 @@ class YoloOnnxDetector:
         self.active_providers: list[str] = list(self._session.get_providers())
         self._input_name: str = self._session.get_inputs()[0].name
 
-    def _preprocess(self, frame_bgr: Any) -> Any:
+    def _preprocess(self, frame_bgr: Any) -> tuple[Any, tuple[float, float, float]]:
         cv2 = self._cv2
         np = self._np
-        in_w, in_h = self.input_size
-        resized = cv2.resize(frame_bgr, (in_w, in_h), interpolation=cv2.INTER_LINEAR)
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        padded, ratio, pad_x, pad_y = letterbox_image(frame_bgr, new_shape=self.input_size)
+        rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
         chw = np.transpose(rgb.astype(np.float32) / 255.0, (2, 0, 1))
-        return np.ascontiguousarray(chw[np.newaxis, ...])
+        tensor = np.ascontiguousarray(chw[np.newaxis, ...])
+        return tensor, (ratio, pad_x, pad_y)
 
     def detect(self, packet: FramePacket) -> list[Detection]:
         if packet.data is None:
             return []
 
-        tensor = self._preprocess(packet.data)
+        tensor, letterbox = self._preprocess(packet.data)
         outputs = self._session.run(None, {self._input_name: tensor})
         if not outputs:
             return []
@@ -267,4 +323,5 @@ class YoloOnnxDetector:
             confidence_threshold=self.confidence_threshold,
             iou_threshold=self.iou_threshold,
             labels=self.labels,
+            letterbox=letterbox,
         )

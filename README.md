@@ -11,8 +11,8 @@
 Deploying Physical AI in real environments—such as workplace safety perimeters, industrial visual inspection, and logistics monitoring—often requires heavy compute and brittle glue code. **Vatra.ai** focuses on:
 
 - **Zero-Dependency Core:** Pure Python standard library core (`vatra info`, `vatra benchmark`, `IouTracker`, `ZoneAnalyticsTracker`, `JsonlAlertSink`, `WebhookAlertSink`, `VatraDashboardServer`, and spatial polygon engine) runs anywhere out of the box.
-- **Edge-First Acceleration:** ONNX Runtime and `YoloOnnxDetector` backends automatically prioritize **NVIDIA TensorRT** (`TensorrtExecutionProvider`) and **CUDA** (`CUDAExecutionProvider`), falling back cleanly to CPU.
-- **YOLO ONNX + NMS + Tracking:** Built-in YOLOv8/v11 ONNX decoding, class-aware Non-Maximum Suppression (`non_max_suppression`), 80 COCO class labels, and persistent `track_id` assignment (`--track`).
+- **Edge-First Acceleration:** ONNX Runtime and `YoloOnnxDetector` backends automatically prioritize **NVIDIA TensorRT** (`TensorrtExecutionProvider`), **CUDA** (`CUDAExecutionProvider`), and **DirectML** (`DmlExecutionProvider`), falling back cleanly to CPU.
+- **YOLO ONNX + Letterbox + NMS + Tracking:** Aspect-ratio-preserving `letterbox_image` preprocessing, YOLOv8/v11 ONNX decoding, class-aware Non-Maximum Suppression (`non_max_suppression`), 80 COCO class labels, and persistent `track_id` assignment (`--track`).
 - **Zone Analytics & Live Dashboard (`v0.4.0`):** Computes active occupancy, unique entry counts, and average/max dwell time (`ZoneAnalyticsTracker`), with a built-in MJPEG + JSON local web dashboard (`vatra serve`).
 - **YAML Config, Alerts & Visualizer:** Declarative `configs/default_pipeline.yaml` runner (`vatra run --config ...`) with JSONL event logging (`--log-events`), rate-limited HTTP webhooks (`--webhook`), OpenCV live preview (`--show`), and `.mp4` annotation export (`--save`).
 
@@ -73,8 +73,12 @@ vatra run --config configs/default_pipeline.yaml --track --log-events logs/event
 # Start the local web dashboard at http://127.0.0.1:8080 (MJPEG stream + Zone Analytics)
 vatra serve --config configs/default_pipeline.yaml
 
+# Export YOLOv8n to ONNX into models/ (requires ultralytics) and run live webcam dashboard
+python scripts/export_yolo_onnx.py --model yolov8n.pt
+vatra serve --source 0 --backend yolo-onnx --model models/yolov8n.onnx
+
 # Run YOLOv8/v11 ONNX model on webcam with live HUD window, webhook alerts, and MP4 export
-vatra run --source 0 --backend yolo-onnx --model yolov8n.onnx --track --webhook https://example.local/alerts --show --save out.mp4
+vatra run --source 0 --backend yolo-onnx --model models/yolov8n.onnx --track --webhook https://example.local/alerts --show --save out.mp4
 ```
 
 ---
@@ -111,6 +115,8 @@ vatra-core/
 ├── examples/
 │   ├── basic_python_api.py
 │   └── custom_alerts_webhook.py
+├── scripts/
+│   └── export_yolo_onnx.py
 ├── src/
 │   └── vatra/
 │       ├── __init__.py
@@ -164,6 +170,7 @@ python -m unittest discover -s tests -v
 - [x] YAML pipeline config loader, YOLO ONNX adapter + NMS + COCO labels, and OpenCV visualizer/recorder (`v0.2.0`)
 - [x] Multi-object IoU tracking, JSONL/Webhook alert dispatchers, and GitHub Actions CI (`v0.3.0`)
 - [x] Per-zone dwell-time & unique-entry analytics + live local web dashboard `vatra serve` (`v0.4.0`)
+- [x] Aspect-ratio letterbox YOLO preprocessing, Windows GPU DirectML/CUDA/TensorRT priority & ONNX export helper (`v0.5.0`)
 - [ ] Synthetic data & simulation bridge (NVIDIA Omniverse / Isaac Sim compatible)
 - [ ] Public edge benchmarks on NVIDIA Jetson Orin
 
