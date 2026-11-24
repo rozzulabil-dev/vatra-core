@@ -9,6 +9,7 @@ from typing import Callable
 from vatra.detectors import DetectorBackend
 from vatra.sources import FrameSource
 from vatra.spatial import SpatialZoneMonitor
+from vatra.tracker import IouTracker
 from vatra.types import Detection, FramePacket, ZoneEvent
 
 
@@ -34,12 +35,14 @@ class EdgeVisionPipeline:
         zone_monitor: SpatialZoneMonitor | None = None,
         on_event: Callable[[ZoneEvent], None] | None = None,
         on_frame: Callable[[FramePacket, list[Detection], list[ZoneEvent]], bool | None] | None = None,
+        tracker: IouTracker | None = None,
     ) -> None:
         self.source = source
         self.detector = detector
         self.zone_monitor = zone_monitor
         self.on_event = on_event
         self.on_frame = on_frame
+        self.tracker = tracker
 
     def run(self) -> PipelineStats:
         """Process all frames from the source and return throughput statistics."""
@@ -53,6 +56,8 @@ class EdgeVisionPipeline:
             for packet in self.source:
                 frame_start = time.perf_counter()
                 detections = self.detector.detect(packet)
+                if self.tracker is not None:
+                    detections = self.tracker.update(detections)
                 total_detections += len(detections)
 
                 events: list[ZoneEvent] = []

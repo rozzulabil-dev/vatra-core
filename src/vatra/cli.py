@@ -9,10 +9,12 @@ from dataclasses import asdict
 from typing import Sequence
 
 from vatra import __version__
+from vatra.alerts import JsonlAlertSink, WebhookAlertSink
 from vatra.config import (
     DetectorConfig,
     PipelineConfig,
     SourceConfig,
+    TrackerConfig,
     build_pipeline_from_config,
     load_pipeline_config,
 )
@@ -106,6 +108,8 @@ def _resolve_run_config(args: argparse.Namespace) -> PipelineConfig:
             cfg.detector.iou_threshold = args.iou
         if args.no_tensorrt:
             cfg.detector.prefer_tensorrt = False
+        if args.track:
+            cfg.tracker.enabled = True
         return cfg
 
     return PipelineConfig(
@@ -120,8 +124,15 @@ def _resolve_run_config(args: argparse.Namespace) -> PipelineConfig:
             iou_threshold=args.iou if args.iou is not None else 0.45,
             prefer_tensorrt=not args.no_tensorrt,
         ),
+        tracker=TrackerConfig(enabled=bool(args.track)),
         zones=[_default_zone()],
     )
+
+
+def _format_detection_tag(det: Detection) -> str:
+    if det.track_id is not None:
+        return f"{det.label}#{det.track_id}({det.confidence:.2f})"
+    return f"{det.label}({det.confidence:.2f})"
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -133,12 +144,25 @@ def _cmd_run(args: argparse.Namespace) -> int:
         )
         return 2
 
+    jsonl_sink = JsonlAlertSink(args.log_events) if args.log_events else None
+    webhook_sink = (
+        WebhookAlertSink(args.webhook, cooldown_seconds=args.webhook_cooldown)
+        if args.webhook
+        else None
+    )
     recorded_events: list[ZoneEvent] = []
 
     def handle_event(event: ZoneEvent) -> None:
         recorded_events.append(event)
+        if jsonl_sink is not None:
+            jsonl_sink.emit(event)
+        if webhook_sink is not None:
+            try:
+                webhook_sink.emit(event)
+            except Exception as exc:
+                print(f"Warning: webhook dispatch failed: {exc}", file=sys.stderr)
         if not args.json:
-            labels = ", ".join(f"{d.label}({d.confidence:.2f})" for d in event.detections)
+            labels = ", ".join(_format_detection_tag(d) for d in event.detections)
             print(
                 f"[frame {event.frame_id:04d}] Zone '{event.zone_name}' triggered: {labels}"
             )
@@ -258,6 +282,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-tensorrt",
         action="store_true",
         help="Disable TensorrtExecutionProvider preference.",
+    )
+    run_parser.add_argument(
+        "--track",
+        action="store_true",
+        help="Enable IoU multi-object tracking across frames.",
+    )
+    run_parser.add_argument(
+        "--log-events",
+        default=None,
+        help="Append triggered ZoneEvents to a JSONL file.",
+    )
+    run_parser.add_argument(
+        "--webhook",
+        default=None,
+        help="HTTP endpoint URL to POST rate-limited JSON ZoneEvents.",
+    )
+    run_parser.add_argument(
+        "--webhook-cooldown",
+        type=float,
+        default=5.0,
+        help="Cooldown seconds per zone between webhook calls (default: 5.0).",
     )
     run_parser.add_argument(
         "--show",

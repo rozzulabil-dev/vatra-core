@@ -1,4 +1,4 @@
-# Default Edge Vision & Spatial Zone pipeline configuration for vatra-core v0.2.0
+# Default Edge Vision & Spatial Zone pipeline configuration for vatra-core v0.3.0
 
 source:
   # Supported options: "synthetic", webcam index (e.g., 0), video file path, or "rtsp://..."
@@ -15,6 +15,11 @@ detector:
   iou_threshold: 0.45
   prefer_tensorrt: true
   input_size: [640, 640]
+
+tracker:
+  enabled: true
+  iou_threshold: 0.3
+  max_missed: 10
 
 zones:
   - zone_id: safety-perimeter-1

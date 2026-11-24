@@ -2,7 +2,7 @@
 
 **Open-source Physical AI & Edge Vision platform by Vantara Intech (*Vantara Infrastruktur Teknologi*).**
 
-`vatra-core` makes real-world computer vision, polygonal spatial zone monitoring, and sensor-to-AI pipelines lightweight, modular, and free for developers, researchers, and industries globally.
+`vatra-core` makes real-world computer vision, multi-object tracking, polygonal spatial zone monitoring, and sensor-to-AI pipelines lightweight, modular, and free for developers, researchers, and industries globally.
 
 ---
 
@@ -10,10 +10,10 @@
 
 Deploying Physical AI in real environments—such as workplace safety perimeters, industrial visual inspection, and logistics monitoring—often requires heavy compute and brittle glue code. **Vatra.ai** focuses on:
 
-- **Zero-Dependency Core:** Pure Python standard library core (`vatra info`, `vatra benchmark`, spatial polygon engine, and pipeline orchestration) runs anywhere out of the box.
+- **Zero-Dependency Core:** Pure Python standard library core (`vatra info`, `vatra benchmark`, `IouTracker`, `JsonlAlertSink`, `WebhookAlertSink`, spatial polygon engine, and pipeline orchestration) runs anywhere out of the box.
 - **Edge-First Acceleration:** ONNX Runtime and `YoloOnnxDetector` backends automatically prioritize **NVIDIA TensorRT** (`TensorrtExecutionProvider`) and **CUDA** (`CUDAExecutionProvider`), falling back cleanly to CPU.
-- **YOLO ONNX + NMS Ready:** Built-in YOLOv8/v11 ONNX decoding, class-aware Non-Maximum Suppression (`non_max_suppression`), and 80 COCO class labels.
-- **YAML Config & Live Visualizer:** Declarative `configs/default_pipeline.yaml` runner (`vatra run --config ...`) with optional OpenCV live preview (`--show`) and `.mp4` annotation export (`--save`).
+- **YOLO ONNX + NMS + Tracking:** Built-in YOLOv8/v11 ONNX decoding, class-aware Non-Maximum Suppression (`non_max_suppression`), 80 COCO class labels, and persistent `track_id` assignment (`--track`).
+- **YAML Config, Alerts & Visualizer:** Declarative `configs/default_pipeline.yaml` runner (`vatra run --config ...`) with JSONL event logging (`--log-events`), rate-limited HTTP webhooks (`--webhook`), OpenCV live preview (`--show`), and `.mp4` annotation export (`--save`).
 - **Spatial Zone Intelligence:** Built-in ray-casting `SpatialZoneMonitor` to emit structured `ZoneEvent`s when watched object classes enter polygonal regions of interest.
 
 ---
@@ -21,7 +21,7 @@ Deploying Physical AI in real environments—such as workplace safety perimeters
 ## Architecture
 
 ```text
-[ Synthetic / Webcam / RTSP ] ---> [ FramePacket ] ---> [ Mock / ONNX / YOLO-ONNX + NMS ] ---> [ SpatialZoneMonitor ] ---> [ ZoneEvent & Visualizer ]
+[ Synthetic / Webcam / RTSP ] ---> [ Mock / ONNX / YOLO-ONNX ] ---> [ IouTracker ] ---> [ SpatialZoneMonitor ] ---> [ JSONL / Webhook / Visualizer ]
 ```
 
 ---
@@ -64,14 +64,14 @@ pip install -e ".[vision,onnx,yaml]"
 pip install -e ".[vision,cuda,yaml]"
 ```
 
-Run from YAML config or directly against a webcam, video file, or RTSP stream with a YOLOv8/v11 ONNX model:
+Run from YAML config or directly against a webcam, video file, or RTSP stream with tracking, event logging, and live visualization:
 
 ```bash
-# Run using YAML configuration
-vatra run --config configs/default_pipeline.yaml --max-frames 30
+# Run using YAML configuration with persistent track IDs and JSONL alert logging
+vatra run --config configs/default_pipeline.yaml --track --log-events logs/events.jsonl --max-frames 30
 
-# Run YOLOv8/v11 ONNX model on webcam with live HUD window and MP4 export
-vatra run --source 0 --backend yolo-onnx --model yolov8n.onnx --show --save out.mp4
+# Run YOLOv8/v11 ONNX model on webcam with live HUD window, webhook alerts, and MP4 export
+vatra run --source 0 --backend yolo-onnx --model yolov8n.onnx --track --webhook https://example.local/alerts --show --save out.mp4
 ```
 
 ---
@@ -80,6 +80,9 @@ vatra run --source 0 --backend yolo-onnx --model yolov8n.onnx --show --save out.
 
 ```text
 vatra-core/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── configs/
 │   └── default_pipeline.yaml
 ├── docs/
@@ -90,19 +93,23 @@ vatra-core/
 │   └── vatra/
 │       ├── __init__.py
 │       ├── __main__.py
+│       ├── alerts.py
 │       ├── cli.py
 │       ├── config.py
 │       ├── detectors.py
 │       ├── pipeline.py
 │       ├── sources.py
 │       ├── spatial.py
+│       ├── tracker.py
 │       ├── types.py
 │       ├── visualizer.py
 │       └── yolo.py
 ├── tests/
+│   ├── test_alerts.py
 │   ├── test_config.py
 │   ├── test_pipeline.py
 │   ├── test_spatial.py
+│   ├── test_tracker.py
 │   ├── test_visualizer.py
 │   └── test_yolo.py
 ├── pyproject.toml
@@ -127,6 +134,7 @@ python -m unittest discover -s tests -v
 - [x] Core Edge Vision pipeline, spatial zone monitor, and CLI (`v0.1.0`)
 - [x] ONNX Runtime backend with TensorRT / CUDA provider priority
 - [x] YAML pipeline config loader, YOLO ONNX adapter + NMS + COCO labels, and OpenCV visualizer/recorder (`v0.2.0`)
+- [x] Multi-object IoU tracking, JSONL/Webhook alert dispatchers, and GitHub Actions CI (`v0.3.0`)
 - [ ] Synthetic data & simulation bridge (NVIDIA Omniverse / Isaac Sim compatible)
 - [ ] Public edge benchmarks on NVIDIA Jetson Orin
 

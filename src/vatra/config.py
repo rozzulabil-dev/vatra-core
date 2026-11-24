@@ -10,6 +10,7 @@ from vatra.detectors import DetectorBackend, MockDetector, OnnxRuntimeDetector
 from vatra.pipeline import EdgeVisionPipeline
 from vatra.sources import FrameSource, SyntheticSource, VideoStreamSource
 from vatra.spatial import SpatialZoneMonitor
+from vatra.tracker import IouTracker
 from vatra.types import Detection, FramePacket, SpatialZone, ZoneEvent
 from vatra.yolo import YoloOnnxDetector
 
@@ -38,11 +39,21 @@ class DetectorConfig:
 
 
 @dataclass(slots=True)
+class TrackerConfig:
+    """Configuration for lightweight IoU multi-object tracking."""
+
+    enabled: bool = False
+    iou_threshold: float = 0.3
+    max_missed: int = 10
+
+
+@dataclass(slots=True)
 class PipelineConfig:
     """Top-level configuration parsed from YAML."""
 
     source: SourceConfig = field(default_factory=SourceConfig)
     detector: DetectorConfig = field(default_factory=DetectorConfig)
+    tracker: TrackerConfig = field(default_factory=TrackerConfig)
     zones: list[SpatialZone] = field(default_factory=list)
 
 
@@ -91,6 +102,15 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         labels=[str(lbl) for lbl in raw_labels] if raw_labels is not None else None,
     )
 
+    trk_raw: dict[str, Any] = raw.get("tracker") or {}
+    if not isinstance(trk_raw, dict):
+        raise ValueError("'tracker' section must be a mapping.")
+    tracker_cfg = TrackerConfig(
+        enabled=bool(trk_raw.get("enabled", False)),
+        iou_threshold=float(trk_raw.get("iou_threshold", 0.3)),
+        max_missed=int(trk_raw.get("max_missed", 10)),
+    )
+
     zones_raw = raw.get("zones") or []
     if not isinstance(zones_raw, list):
         raise ValueError("'zones' section must be a list of spatial zones.")
@@ -110,7 +130,12 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
             )
         )
 
-    return PipelineConfig(source=source_cfg, detector=detector_cfg, zones=zones)
+    return PipelineConfig(
+        source=source_cfg,
+        detector=detector_cfg,
+        tracker=tracker_cfg,
+        zones=zones,
+    )
 
 
 def build_source_from_config(source_cfg: SourceConfig) -> FrameSource:
@@ -163,6 +188,14 @@ def build_pipeline_from_config(
     """Build a runnable EdgeVisionPipeline from a PipelineConfig."""
     source = build_source_from_config(config.source)
     detector = build_detector_from_config(config.detector)
+    tracker = (
+        IouTracker(
+            iou_threshold=config.tracker.iou_threshold,
+            max_missed=config.tracker.max_missed,
+        )
+        if config.tracker.enabled
+        else None
+    )
     monitor = SpatialZoneMonitor(config.zones) if config.zones else None
     return EdgeVisionPipeline(
         source=source,
@@ -170,4 +203,5 @@ def build_pipeline_from_config(
         zone_monitor=monitor,
         on_event=on_event,
         on_frame=on_frame,
+        tracker=tracker,
     )

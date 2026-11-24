@@ -40,6 +40,7 @@ class Detection:
     confidence: float
     bbox: BoundingBox
     class_id: int = 0
+    track_id: int | None = None
 
 
 @dataclass(slots=True)

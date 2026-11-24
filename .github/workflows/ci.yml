@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install vatra-core with vision, onnx, and yaml extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[vision,onnx,yaml]"
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Verify CLI info and benchmark
+        run: |
+          vatra info
+          vatra benchmark --frames 20
+          vatra run --config configs/default_pipeline.yaml --track --max-frames 15

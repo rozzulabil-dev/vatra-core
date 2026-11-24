@@ -94,7 +94,11 @@ class FrameVisualizer:
             x2, y2 = int(det.bbox.x2), int(det.bbox.y2)
             box_color = (248, 189, 56)  # BGR cyan-ish
             cv2.rectangle(canvas, (x1, y1), (x2, y2), box_color, 2)
-            caption = f"{det.label} {det.confidence:.2f}"
+            caption = (
+                f"{det.label} #{det.track_id} {det.confidence:.2f}"
+                if det.track_id is not None
+                else f"{det.label} {det.confidence:.2f}"
+            )
             cv2.putText(
                 canvas,
                 caption,
