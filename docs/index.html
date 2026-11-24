@@ -28,7 +28,7 @@
           (<em>Vantara Infrastruktur Teknologi</em>)
         </p>
         <p class="hero-meta">
-          Vatra-Coder-1.5B &middot; vatra-core v0.1.0 &middot; Apache-2.0 Open Source
+          Vatra-Coder-1.5B &middot; vatra-core v0.4.0 &middot; Apache-2.0 Open Source
         </p>
 
         <div class="pill-links">
@@ -111,9 +111,11 @@
               to run efficiently on consumer GPUs, developer laptops, and edge devices.
             </li>
             <li>
-              <strong>Zero-dependency core (<code>vatra-core</code> v0.1.0):</strong>
-              Built on pure Python 3.10+ standard library for instant setup and CI
-              verification.
+              <strong>Zero-dependency core (<code>vatra-core</code> v0.4.0):</strong>
+              Built on pure Python 3.10+ standard library with
+              <code>IouTracker</code>, <code>ZoneAnalyticsTracker</code> (unique entries
+              &amp; dwell time), JSONL/Webhook alert dispatchers, and the
+              <code>vatra serve</code> live dashboard.
             </li>
             <li>
               <strong>Hardware-accelerated Edge Vision:</strong> ONNX Runtime detector
@@ -173,12 +175,12 @@
                   <td data-label="Project / Model">
                     <strong>vatra-core</strong>
                   </td>
-                  <td data-label="Scale"><code>v0.1.0 Runtime</code></td>
+                  <td data-label="Scale"><code>v0.4.0 Runtime</code></td>
                   <td data-label="Primary Focus">
-                    Edge Vision ingestion, ONNX/TensorRT inference &amp; spatial zone monitoring
+                    Edge Vision, YOLO ONNX/TensorRT, <code>IouTracker</code>, zone dwell analytics &amp; <code>vatra serve</code>
                   </td>
                   <td data-label="Status">
-                    <span class="status-tag status-verified">Verified v0.1.0</span>
+                    <span class="status-tag status-verified">Verified v0.4.0</span>
                   </td>
                 </tr>
                 <tr>
@@ -250,9 +252,10 @@
                   <span>03. REASON</span>
                   <span class="arch-arrow" aria-hidden="true">&rarr;</span>
                 </div>
-                <h3>SpatialZoneMonitor</h3>
+                <h3>Tracker &amp; Zones</h3>
                 <p>
-                  2D ray-casting polygon ROI checks filtered by watched object labels.
+                  <code>IouTracker</code> + <code>SpatialZoneMonitor</code> + dwell-time
+                  analytics.
                 </p>
               </div>
 
@@ -261,16 +264,17 @@
                   <span>04. OUTPUT</span>
                   <span class="arch-arrow" aria-hidden="true">&bull;</span>
                 </div>
-                <h3>ZoneEvent</h3>
+                <h3>Alerts &amp; Dashboard</h3>
                 <p>
-                  Real-time <code>on_event</code> callbacks, CLI alerts, and
-                  <code>PipelineStats</code> telemetry.
+                  JSONL/Webhook alerts, OpenCV recorder, and live
+                  <code>vatra serve</code> UI.
                 </p>
               </div>
             </div>
             <p class="figure-caption">
-              <strong>Fig. 1.</strong> Modular four-stage <code>vatra-core</code> v0.1.0
-              pipeline from physical sensor frames to spatial zone events.
+              <strong>Fig. 1.</strong> Modular four-stage <code>vatra-core</code> v0.4.0
+              pipeline from physical sensor frames to tracked spatial analytics and live
+              telemetry.
             </p>
           </div>
         </div>
@@ -329,8 +333,9 @@ vatra info
 # Run zero-dependency synthetic pipeline benchmark
 vatra benchmark --frames 30
 
-# Optional: camera ingestion + NVIDIA CUDA / TensorRT runtime
-pip install -e ".[vision,cuda,yaml]"</code></pre>
+# Launch live web dashboard (MJPEG stream + Zone Analytics)
+pip install -e ".[vision,cuda,yaml]"
+vatra serve --config configs/default_pipeline.yaml</code></pre>
           </div>
         </div>
       </section>
@@ -353,7 +358,7 @@ pip install -e ".[vision,cuda,yaml]"</code></pre>
   author       = {Vantara Intech (Vantara Infrastruktur Teknologi)},
   title        = {Vatra.ai: Vatra-Coder-1.5B and vatra-core Open Physical AI Platform},
   year         = {2026},
-  version      = {0.1.0},
+  version      = {0.4.0},
   url          = {https://github.com/rozzulabil-dev/vatra-core}
 }</code></pre>
           </div>

@@ -221,3 +221,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Vatra local demo outputs & logs
+*.mp4
+logs/
