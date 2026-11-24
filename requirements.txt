@@ -1,0 +1,9 @@
+# Optional runtime dependencies for camera ingestion, ONNX inference, and YAML config.
+# The core CLI (`vatra info`, `vatra benchmark`) runs with Python standard library only.
+# For NVIDIA CUDA / TensorRT acceleration, replace `onnxruntime` with `onnxruntime-gpu`.
+
+numpy>=1.26
+opencv-python-headless>=4.9
+onnxruntime>=1.18
+# onnxruntime-gpu>=1.18
+pyyaml>=6.0

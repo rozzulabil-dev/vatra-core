@@ -1,0 +1,27 @@
+# Default Edge Vision & Spatial Zone pipeline configuration for vatra-core
+
+source:
+  # Supported options: "synthetic", webcam index (e.g., 0), video file path, or "rtsp://..."
+  uri: synthetic
+  width: 640
+  height: 480
+  max_frames: 60
+
+detector:
+  # Supported options: "mock" or "onnx"
+  backend: mock
+  model_path: null
+  confidence_threshold: 0.5
+  prefer_tensorrt: true
+
+zones:
+  - zone_id: safety-perimeter-1
+    name: Restricted Machinery Perimeter
+    polygon:
+      - [160, 120]
+      - [480, 120]
+      - [480, 360]
+      - [160, 360]
+    watched_labels:
+      - person
+      - forklift
