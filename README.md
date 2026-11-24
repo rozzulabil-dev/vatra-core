@@ -79,6 +79,22 @@ vatra run --source 0 --backend yolo-onnx --model yolov8n.onnx --track --webhook 
 
 ---
 
+## Docker
+
+Run the live dashboard in a container (CPU default or NVIDIA CUDA):
+
+```bash
+# CPU container
+docker build -t vatra-core .
+docker run --rm -p 8080:8080 vatra-core
+
+# NVIDIA CUDA / TensorRT container
+docker build --build-arg EXTRAS=vision,cuda,yaml -t vatra-core:cuda .
+docker run --rm --gpus all -p 8080:8080 vatra-core:cuda
+```
+
+---
+
 ## Project Structure
 
 ```text
@@ -92,6 +108,9 @@ vatra-core/
 │   ├── app.js
 │   ├── index.html
 │   └── styles.css
+├── examples/
+│   ├── basic_python_api.py
+│   └── custom_alerts_webhook.py
 ├── src/
 │   └── vatra/
 │       ├── __init__.py
@@ -119,6 +138,8 @@ vatra-core/
 │   ├── test_tracker.py
 │   ├── test_visualizer.py
 │   └── test_yolo.py
+├── Dockerfile
+├── .dockerignore
 ├── pyproject.toml
 ├── requirements.txt
 ├── LICENSE
