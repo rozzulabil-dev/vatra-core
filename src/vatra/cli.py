@@ -9,16 +9,19 @@ from dataclasses import asdict
 from typing import Sequence
 
 from vatra import __version__
-from vatra.detectors import (
-    DetectorBackend,
-    MockDetector,
-    OnnxRuntimeDetector,
-    probe_runtime_environment,
+from vatra.config import (
+    DetectorConfig,
+    PipelineConfig,
+    SourceConfig,
+    build_pipeline_from_config,
+    load_pipeline_config,
 )
+from vatra.detectors import MockDetector, probe_runtime_environment
 from vatra.pipeline import EdgeVisionPipeline
-from vatra.sources import FrameSource, SyntheticSource, VideoStreamSource
+from vatra.sources import SyntheticSource
 from vatra.spatial import SpatialZoneMonitor
-from vatra.types import SpatialZone, ZoneEvent
+from vatra.types import Detection, FramePacket, SpatialZone, ZoneEvent
+from vatra.visualizer import FrameVisualizer
 
 
 def _default_zone(width: int = 640, height: int = 480) -> SpatialZone:
@@ -86,30 +89,50 @@ def _cmd_benchmark(frames: int, width: int, height: int, as_json: bool) -> int:
     return 0
 
 
-def _parse_source(raw_source: str, max_frames: int | None) -> FrameSource:
-    if raw_source == "synthetic":
-        return SyntheticSource(max_frames=max_frames if max_frames is not None else 30)
-    uri: int | str = int(raw_source) if raw_source.isdigit() else raw_source
-    return VideoStreamSource(uri=uri, max_frames=max_frames)
+def _resolve_run_config(args: argparse.Namespace) -> PipelineConfig:
+    if args.config:
+        cfg = load_pipeline_config(args.config)
+        if args.source is not None:
+            cfg.source.uri = args.source
+        if args.max_frames is not None:
+            cfg.source.max_frames = args.max_frames
+        if args.backend is not None:
+            cfg.detector.backend = args.backend
+        if args.model is not None:
+            cfg.detector.model_path = args.model
+        if args.confidence is not None:
+            cfg.detector.confidence_threshold = args.confidence
+        if args.iou is not None:
+            cfg.detector.iou_threshold = args.iou
+        if args.no_tensorrt:
+            cfg.detector.prefer_tensorrt = False
+        return cfg
+
+    return PipelineConfig(
+        source=SourceConfig(
+            uri=args.source if args.source is not None else "synthetic",
+            max_frames=args.max_frames,
+        ),
+        detector=DetectorConfig(
+            backend=args.backend if args.backend is not None else "mock",
+            model_path=args.model,
+            confidence_threshold=args.confidence if args.confidence is not None else 0.5,
+            iou_threshold=args.iou if args.iou is not None else 0.45,
+            prefer_tensorrt=not args.no_tensorrt,
+        ),
+        zones=[_default_zone()],
+    )
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    source = _parse_source(args.source, args.max_frames)
-
-    detector: DetectorBackend
-    if args.backend == "mock":
-        detector = MockDetector(confidence_threshold=args.confidence)
-    else:
-        if not args.model:
-            print("Error: --model is required when --backend onnx is selected.", file=sys.stderr)
-            return 2
-        detector = OnnxRuntimeDetector(
-            model_path=args.model,
-            confidence_threshold=args.confidence,
-            prefer_tensorrt=not args.no_tensorrt,
+    cfg = _resolve_run_config(args)
+    if cfg.detector.backend.lower() in ("onnx", "yolo-onnx") and not cfg.detector.model_path:
+        print(
+            f"Error: --model is required when --backend {cfg.detector.backend} is selected.",
+            file=sys.stderr,
         )
+        return 2
 
-    monitor = SpatialZoneMonitor([_default_zone()])
     recorded_events: list[ZoneEvent] = []
 
     def handle_event(event: ZoneEvent) -> None:
@@ -120,13 +143,36 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 f"[frame {event.frame_id:04d}] Zone '{event.zone_name}' triggered: {labels}"
             )
 
-    pipeline = EdgeVisionPipeline(
-        source=source,
-        detector=detector,
-        zone_monitor=monitor,
+    visualizer: FrameVisualizer | None = None
+    on_frame = None
+    if args.show or args.save:
+        visualizer = FrameVisualizer(
+            zones=cfg.zones,
+            show=args.show,
+            save_path=args.save,
+        )
+
+        def handle_frame(
+            packet: FramePacket,
+            detections: list[Detection],
+            events: list[ZoneEvent],
+        ) -> bool:
+            _, keep_running = visualizer.render(packet, detections, events)
+            return keep_running
+
+        on_frame = handle_frame
+
+    pipeline = build_pipeline_from_config(
+        cfg,
         on_event=handle_event,
+        on_frame=on_frame,
     )
-    stats = pipeline.run()
+
+    try:
+        stats = pipeline.run()
+    finally:
+        if visualizer is not None:
+            visualizer.close()
 
     if args.json:
         print(
@@ -174,22 +220,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the Edge Vision pipeline on synthetic, camera, or RTSP input.",
     )
     run_parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to YAML pipeline configuration file (CLI flags override config values).",
+    )
+    run_parser.add_argument(
         "--source",
-        default="synthetic",
+        default=None,
         help="Input source: 'synthetic', webcam index (e.g. 0), file path, or rtsp:// URL.",
     )
     run_parser.add_argument(
         "--backend",
-        choices=["mock", "onnx"],
-        default="mock",
+        choices=["mock", "onnx", "yolo-onnx"],
+        default=None,
         help="Detection backend.",
     )
     run_parser.add_argument("--model", default=None, help="Path to ONNX model file.")
     run_parser.add_argument(
         "--confidence",
         type=float,
-        default=0.5,
+        default=None,
         help="Minimum confidence threshold.",
+    )
+    run_parser.add_argument(
+        "--iou",
+        type=float,
+        default=None,
+        help="IoU threshold for YOLO NMS (default: 0.45).",
     )
     run_parser.add_argument(
         "--max-frames",
@@ -201,6 +258,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-tensorrt",
         action="store_true",
         help="Disable TensorrtExecutionProvider preference.",
+    )
+    run_parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Display live OpenCV overlay window (press q or Esc to quit).",
+    )
+    run_parser.add_argument(
+        "--save",
+        default=None,
+        help="Save annotated output video to an .mp4 file.",
     )
     run_parser.add_argument("--json", action="store_true", help="Output as JSON.")
 

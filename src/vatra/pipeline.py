@@ -9,7 +9,7 @@ from typing import Callable
 from vatra.detectors import DetectorBackend
 from vatra.sources import FrameSource
 from vatra.spatial import SpatialZoneMonitor
-from vatra.types import ZoneEvent
+from vatra.types import Detection, FramePacket, ZoneEvent
 
 
 @dataclass(slots=True)
@@ -33,11 +33,13 @@ class EdgeVisionPipeline:
         detector: DetectorBackend,
         zone_monitor: SpatialZoneMonitor | None = None,
         on_event: Callable[[ZoneEvent], None] | None = None,
+        on_frame: Callable[[FramePacket, list[Detection], list[ZoneEvent]], bool | None] | None = None,
     ) -> None:
         self.source = source
         self.detector = detector
         self.zone_monitor = zone_monitor
         self.on_event = on_event
+        self.on_frame = on_frame
 
     def run(self) -> PipelineStats:
         """Process all frames from the source and return throughput statistics."""
@@ -53,6 +55,7 @@ class EdgeVisionPipeline:
                 detections = self.detector.detect(packet)
                 total_detections += len(detections)
 
+                events: list[ZoneEvent] = []
                 if self.zone_monitor is not None:
                     events = self.zone_monitor.evaluate(packet, detections)
                     total_zone_events += len(events)
@@ -60,8 +63,16 @@ class EdgeVisionPipeline:
                         for event in events:
                             self.on_event(event)
 
+                keep_running = True
+                if self.on_frame is not None:
+                    result = self.on_frame(packet, detections, events)
+                    if result is False:
+                        keep_running = False
+
                 total_frame_time += time.perf_counter() - frame_start
                 frames_processed += 1
+                if not keep_running:
+                    break
         finally:
             self.source.close()
 

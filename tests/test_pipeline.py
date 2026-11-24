@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+from pathlib import Path
 import unittest
 
 from vatra.cli import main as cli_main
@@ -59,6 +60,16 @@ class PipelineAndCliTests(unittest.TestCase):
         self.assertEqual(bench_payload["frames_processed"], 10)
         self.assertGreater(bench_payload["total_detections"], 0)
         self.assertGreater(bench_payload["total_zone_events"], 0)
+
+    def test_cli_run_with_yaml_config_json(self) -> None:
+        cfg_path = Path(__file__).resolve().parents[1] / "configs" / "default_pipeline.yaml"
+        run_out = io.StringIO()
+        with contextlib.redirect_stdout(run_out):
+            code = cli_main(["run", "--config", str(cfg_path), "--max-frames", "10", "--json"])
+        self.assertEqual(code, 0)
+        payload = json.loads(run_out.getvalue())
+        self.assertEqual(payload["stats"]["frames_processed"], 10)
+        self.assertGreater(payload["events_count"], 0)
 
 
 if __name__ == "__main__":
