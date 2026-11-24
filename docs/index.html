@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vatra.ai — Open-Source Physical AI &amp; Edge Vision | Vantara Intech</title>
+    <meta
+      name="description"
+      content="Vatra.ai (vatra-core) is an open-source Physical AI and Edge Vision platform by Vantara Intech for lightweight, real-time spatial intelligence."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="container nav-inner">
+        <a class="brand" href="#top">
+          <span class="brand-mark">V</span>
+          <span>Vatra.ai</span>
+        </a>
+        <nav class="nav-links" aria-label="Primary Navigation">
+          <a href="#features">Features</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#quickstart">Quickstart</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#about">About</a>
+        </nav>
+        <a
+          class="btn btn-secondary btn-sm"
+          href="https://github.com/rozzulabil-dev/vatra-core"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View on GitHub
+        </a>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="container hero-grid">
+          <div>
+            <div class="eyebrow">Open Source · Apache-2.0 · v0.1.0</div>
+            <h1>
+              Lightweight <span>Physical AI</span> &amp; Edge Vision for Real-World Spaces
+            </h1>
+            <p class="hero-subtitle">
+              <strong>Vatra.ai</strong> (<code>vatra-core</code>) makes computer vision,
+              polygonal spatial zone intelligence, and sensor-to-AI pipelines modular,
+              fast, and free to all developers and industries worldwide.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#quickstart">Get Started</a>
+              <a
+                class="btn btn-secondary"
+                href="https://github.com/rozzulabil-dev/vatra-core"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Explore vatra-core
+              </a>
+            </div>
+            <div class="hero-meta">
+              <span><strong>Python</strong> &gt;= 3.10</span>
+              <span><strong>Core Deps</strong> Zero external required</span>
+              <span><strong>Acceleration</strong> TensorRT / CUDA / CPU</span>
+            </div>
+          </div>
+
+          <div class="terminal-card" aria-label="vatra-core CLI preview">
+            <div class="terminal-header">
+              <div class="terminal-dots" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <span class="terminal-title">vatra-core CLI</span>
+            </div>
+            <pre class="terminal-body"><code><span class="term-cmd">$ vatra info</span>
+vatra-core v0.1.0
+ONNX Providers:     TensorrtExecutionProvider, CUDAExecutionProvider, CPUExecutionProvider
+CUDA Available:     <span class="term-ok">True</span>
+TensorRT Available: <span class="term-ok">True</span>
+
+<span class="term-cmd">$ vatra benchmark --frames 30</span>
+vatra-core v0.1.0 Benchmark (640x480, 30 frames)
+  Frames processed:  30
+  Zone events:       triggered inside SpatialZoneMonitor
+  Status:            <span class="term-ok">ready for edge deployment</span></code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2>Built for Edge Efficiency and Spatial Awareness</h2>
+            <p>
+              Designed by Vantara Intech to eliminate glue-code overhead when moving from
+              prototype vision models to physical environments.
+            </p>
+          </div>
+
+          <div class="features-grid">
+            <article class="card">
+              <span class="badge badge-cyan">Zero Friction</span>
+              <h3>Zero-Dependency Core</h3>
+              <p>
+                Core pipeline orchestration, ray-casting spatial polygon logic, and the
+                <code>vatra</code> CLI run on pure Python standard library out of the box.
+              </p>
+            </article>
+
+            <article class="card">
+              <span class="badge badge-green">NVIDIA Ready</span>
+              <h3>TensorRT &amp; CUDA Priority</h3>
+              <p>
+                <code>OnnxRuntimeDetector</code> automatically prioritizes
+                <code>TensorrtExecutionProvider</code> and
+                <code>CUDAExecutionProvider</code> on NVIDIA GPUs and Jetson devices,
+                with clean CPU fallback.
+              </p>
+            </article>
+
+            <article class="card">
+              <span class="badge badge-cyan">Physical AI</span>
+              <h3>Spatial Zone Intelligence</h3>
+              <p>
+                Built-in <code>SpatialZoneMonitor</code> evaluates object centers against
+                polygonal regions of interest and emits structured
+                <code>ZoneEvent</code> payloads for watched labels.
+              </p>
+            </article>
+
+            <article class="card">
+              <span class="badge badge-green">Modular Ingestion</span>
+              <h3>Unified Edge Ingestion</h3>
+              <p>
+                Swap seamlessly between <code>SyntheticSource</code> for CI benchmarks
+                and <code>VideoStreamSource</code> for webcams, local files, or live RTSP
+                industrial camera feeds.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="architecture" class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2>Pipeline Architecture</h2>
+            <p>
+              Four composable stages from physical camera frames to real-time spatial
+              decisions.
+            </p>
+          </div>
+
+          <div class="arch-flow">
+            <div class="arch-node">
+              <div class="arch-step">01 · Ingest</div>
+              <h3>FrameSource</h3>
+              <p>Synthetic, Webcam, Video File, or RTSP stream yielding <code>FramePacket</code>.</p>
+            </div>
+            <div class="arch-arrow" aria-hidden="true">-&gt;</div>
+            <div class="arch-node">
+              <div class="arch-step">02 · Detect</div>
+              <h3>DetectorBackend</h3>
+              <p><code>MockDetector</code> or <code>OnnxRuntimeDetector</code> (TensorRT / CUDA / CPU).</p>
+            </div>
+            <div class="arch-arrow" aria-hidden="true">-&gt;</div>
+            <div class="arch-node">
+              <div class="arch-step">03 · Reason</div>
+              <h3>SpatialZoneMonitor</h3>
+              <p>Ray-casting polygon checks filtered by target physical classes.</p>
+            </div>
+            <div class="arch-arrow" aria-hidden="true">-&gt;</div>
+            <div class="arch-node">
+              <div class="arch-step">04 · Act</div>
+              <h3>ZoneEvent</h3>
+              <p>Structured callbacks and throughput telemetry via <code>PipelineStats</code>.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="quickstart" class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2>Quickstart</h2>
+            <p>
+              Install the core package in seconds, or include optional vision and NVIDIA
+              CUDA acceleration extras.
+            </p>
+          </div>
+
+          <div class="code-card">
+            <div class="code-card-header">
+              <span>bash / powershell</span>
+              <button class="copy-btn" type="button" data-copy="quickstart-code">
+                Copy commands
+              </button>
+            </div>
+            <pre><code id="quickstart-code">git clone https://github.com/rozzulabil-dev/vatra-core.git
+cd vatra-core
+pip install -e .
+
+# Inspect runtime &amp; ONNX / CUDA / TensorRT providers
+vatra info
+
+# Run zero-dependency synthetic pipeline benchmark
+vatra benchmark --frames 30
+
+# Optional: install camera ingestion + NVIDIA CUDA / TensorRT runtime
+pip install -e ".[vision,cuda,yaml]"</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap" class="section">
+        <div class="container split-grid">
+          <div class="card">
+            <span class="badge badge-cyan">Roadmap</span>
+            <h3>Open-Source Milestones</h3>
+            <ul class="roadmap-list">
+              <li>
+                <span class="status-pill status-done">DONE</span>
+                <span>Project initialization &amp; open-source Apache-2.0 specification</span>
+              </li>
+              <li>
+                <span class="status-pill status-done">DONE</span>
+                <span>Core Edge Vision pipeline, spatial zone monitor, and CLI (<code>v0.1.0</code>)</span>
+              </li>
+              <li>
+                <span class="status-pill status-done">DONE</span>
+                <span>ONNX Runtime backend with TensorRT / CUDA provider priority</span>
+              </li>
+              <li>
+                <span class="status-pill status-next">NEXT</span>
+                <span>Pre-configured YOLOv8/YOLOv10 model adapters &amp; label presets</span>
+              </li>
+              <li>
+                <span class="status-pill status-next">NEXT</span>
+                <span>Synthetic data &amp; simulation bridge (NVIDIA Omniverse / Isaac Sim compatible)</span>
+              </li>
+              <li>
+                <span class="status-pill status-next">NEXT</span>
+                <span>Public edge benchmarks on NVIDIA Jetson Orin</span>
+              </li>
+            </ul>
+          </div>
+
+          <div id="about" class="card">
+            <span class="badge badge-green">Vantara Intech</span>
+            <h3>About Vantara Infrastruktur Teknologi</h3>
+            <p>
+              <strong>Vatra.ai</strong> is developed and maintained by
+              <strong>Vantara Intech</strong> (<em>Vantara Infrastruktur Teknologi</em>),
+              an AI engineering company focused on open, resource-efficient Physical AI
+              infrastructure.
+            </p>
+            <p style="margin-top: 0.75rem;">
+              Our core tooling is released free to all under the Apache-2.0 License so
+              engineers, researchers, and industrial teams anywhere can build reliable
+              spatial intelligence without vendor lock-in.
+            </p>
+            <div class="about-meta">
+              <span><strong>Legal Entity:</strong> Vantara Infrastruktur Teknologi</span>
+              <span><strong>Flagship Project:</strong> Vatra.ai (<code>vatra-core</code>)</span>
+              <span><strong>License:</strong> Apache-2.0</span>
+              <span>
+                <strong>Repository:</strong>
+                <a
+                  href="https://github.com/rozzulabil-dev/vatra-core"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  github.com/rozzulabil-dev/vatra-core
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>
+          &copy; 2026 Vantara Intech (Vantara Infrastruktur Teknologi). Released under
+          Apache-2.0.
+        </span>
+        <div class="footer-links">
+          <a
+            href="https://github.com/rozzulabil-dev/vatra-core"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+          <a
+            href="https://github.com/rozzulabil-dev/vatra-core/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Issues
+          </a>
+          <a
+            href="https://github.com/rozzulabil-dev/vatra-core/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            License
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
